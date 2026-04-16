@@ -5,6 +5,10 @@
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## 스크린샷
+
+![RTSP Relay Viewer](screen.png)
+
 ## 주요 기능
 
 - **다중 채널 모니터링** - 1x1 / 2x2 / 2x3 / 3x3 레이아웃 (최대 9채널 동시 수신)
