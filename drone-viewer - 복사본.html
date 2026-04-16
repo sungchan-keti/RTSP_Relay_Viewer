@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>드론 영상 모니터링 시스템</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #020710;
+    background-image: 
+      linear-gradient(rgba(0, 243, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 243, 255, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    color: #c7f0ff;
+    font-family: 'Rajdhani', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    background: linear-gradient(90deg, rgba(2, 17, 36, 0.9), rgba(4, 31, 61, 0.9));
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid #00f3ff;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 0;
+    width: 20%; height: 2px;
+    background: #fff;
+    box-shadow: 0 0 10px #fff;
+    animation: scanline 4s linear infinite;
+  }
+
+  @keyframes scanline {
+    0% { left: -20%; }
+    100% { left: 100%; }
+  }
+
+  header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #00f3ff;
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+    letter-spacing: 3px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  header .info {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: #00f3ff;
+    text-shadow: 0 0 5px rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.1);
+    padding: 4px 12px;
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    border-radius: 2px;
+  }
+
+  .toolbar {
+    background: rgba(2, 11, 23, 0.85);
+    backdrop-filter: blur(5px);
+    padding: 10px 24px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.15);
+    flex-shrink: 0;
+  }
+
+  .toolbar label {
+    font-size: 14px;
+    font-family: 'Share Tech Mono', monospace;
+    color: #7de2ff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .toolbar select, .toolbar button {
+    background: rgba(0, 243, 255, 0.05);
+    color: #00f3ff;
+    border: 1px solid #00f3ff;
+    padding: 6px 16px;
+    border-radius: 2px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 5px rgba(0, 243, 255, 0.1) inset;
+  }
+
+  .toolbar select {
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .toolbar select option {
+    background: #020914;
+    color: #00f3ff;
+  }
+
+  .toolbar button:hover {
+    background: rgba(0, 243, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.4) inset;
+    text-shadow: 0 0 5px #00f3ff;
+  }
+
+  .toolbar .btn-danger {
+    border-color: #ff0055;
+    color: #ff0055;
+    box-shadow: 0 0 5px rgba(255, 0, 85, 0.1) inset;
+  }
+
+  .toolbar .btn-danger:hover {
+    background: rgba(255, 0, 85, 0.2);
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.4) inset;
+    text-shadow: 0 0 5px #ff0055;
+  }
+
+  .grid-container {
+    flex: 1;
+    display: grid;
+    gap: 8px;
+    padding: 8px;
+    min-height: 0;
+  }
+
+  .grid-2x3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+  .grid-1x1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .grid-2x2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+  .grid-3x3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+
+  .panel {
+    background: rgba(2, 9, 20, 0.6);
+    border: 1px solid rgba(0, 243, 255, 0.2);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.8) inset;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 20px; height: 20px;
+    border-top: 2px solid rgba(0, 243, 255, 0.5);
+    border-left: 2px solid rgba(0, 243, 255, 0.5);
+    z-index: 10;
+    pointer-events: none;
+  }
+  .panel::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 20px; height: 20px;
+    border-bottom: 2px solid rgba(0, 243, 255, 0.5);
+    border-right: 2px solid rgba(0, 243, 255, 0.5);
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .panel.connected {
+    border-color: #00ff66;
+  }
+  .panel.connected::before { border-color: #00ff66; }
+  .panel.connected::after { border-color: #00ff66; }
+
+  .panel.error {
+    border-color: #ff0055;
+    animation: flashError 2s infinite;
+  }
+  .panel.error::before { border-color: #ff0055; }
+  .panel.error::after { border-color: #ff0055; }
+
+  @keyframes flashError {
+    0%, 100% { border-color: #ff0055; box-shadow: 0 0 10px rgba(255,0,85,0.2) inset; }
+    50% { border-color: rgba(255, 0, 85, 0.4); box-shadow: transparent; }
+  }
+
+  .panel.fullscreen-panel {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1000;
+    background: #000;
+    border: none;
+    border-radius: 0;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: linear-gradient(90deg, rgba(0, 243, 255, 0.1) 0%, transparent 100%);
+    border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+    flex-shrink: 0;
+  }
+
+  .panel-header .ch-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: #00f3ff;
+    text-shadow: 0 0 4px #00f3ff;
+    white-space: nowrap;
+    background: rgba(0, 243, 255, 0.1);
+    padding: 2px 6px;
+    border-left: 3px solid #00f3ff;
+  }
+
+  .panel-header input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    color: #e0faff;
+    padding: 5px 10px;
+    border-radius: 2px;
+    font-size: 13px;
+    font-family: 'Share Tech Mono', monospace;
+    min-width: 0;
+    transition: all 0.3s;
+  }
+
+  .panel-header input::placeholder {
+    color: rgba(0, 243, 255, 0.3);
+  }
+
+  .panel-header input:focus {
+    outline: none;
+    border-color: #00f3ff;
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+    background: rgba(0, 243, 255, 0.05);
+  }
+
+  .panel-header .btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: rgba(0, 243, 255, 0.1);
+    color: #00f3ff;
+    border: 1px solid #00f3ff;
+    border-radius: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-weight: 600;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .panel-header .btn-sm:hover {
+    background: rgba(0, 243, 255, 0.3);
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+  }
+
+  .panel-header .btn-sm.disconnect {
+    background: rgba(255, 0, 85, 0.1);
+    color: #ff0055;
+    border-color: #ff0055;
+  }
+
+  .panel-header .btn-sm.disconnect:hover {
+    background: rgba(255, 0, 85, 0.3);
+    box-shadow: 0 0 8px rgba(255, 0, 85, 0.5);
+  }
+
+  .panel-header .btn-sm.btn-fs {
+    background: transparent;
+    border-color: transparent;
+    color: #00f3ff;
+    font-size: 14px;
+    padding: 3px 6px;
+    opacity: 0.7;
+  }
+
+  .panel-header .btn-sm.btn-fs:hover {
+    opacity: 1;
+    background: rgba(0, 243, 255, 0.1);
+    border-color: #00f3ff;
+  }
+
+  .panel-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: radial-gradient(circle at center, #031221 0%, #000 100%);
+    min-height: 0;
+  }
+
+  .panel-body canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+
+  .panel-body canvas.active {
+    display: block;
+  }
+
+  .placeholder {
+    text-align: center;
+    color: rgba(0, 243, 255, 0.5);
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 1px;
+  }
+
+  .placeholder .icon {
+    font-size: 44px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+    text-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .placeholder p {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .status-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 12px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+    border-top: 1px solid rgba(0, 243, 255, 0.1);
+    z-index: 2;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .status-bar .status-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-bar .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    vertical-align: middle;
+  }
+
+  .status-dot.green { background: #00ff66; box-shadow: 0 0 8px #00ff66; animation: pulseGreen 2s infinite; }
+  .status-dot.red { background: #ff0055; box-shadow: 0 0 8px #ff0055; }
+  .status-dot.yellow { background: #ffee00; box-shadow: 0 0 8px #ffee00; animation: blink 1s infinite; }
+  .status-dot.gray { background: #4a5a68; }
+
+  @keyframes pulseGreen {
+    0% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(0, 255, 102, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0); }
+  }
+
+  @keyframes blink { 50% { opacity: 0.2; } }
+
+  .meta-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .meta-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+  }
+
+  .meta-tag.codec { border: 1px solid #00f3ff; color: #00f3ff; background: rgba(0, 243, 255, 0.1); }
+  .meta-tag.resolution { border: 1px solid #00ff66; color: #00ff66; background: rgba(0, 255, 102, 0.1); }
+  .meta-tag.fps { border: 1px solid #ffee00; color: #ffee00; background: rgba(255, 238, 0, 0.1); }
+  .meta-tag.bitrate { border: 1px solid #ff00ea; color: #ff00ea; background: rgba(255, 0, 234, 0.1); }
+  .meta-tag.uptime { border: 1px solid #aebac5; color: #aebac5; background: rgba(174, 186, 197, 0.1); }
+
+  .protocol-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 6px;
+    letter-spacing: 1px;
+  }
+
+  .protocol-badge.ffmpeg { background: #00f3ff; color: #000; box-shadow: 0 0 5px #00f3ff; text-shadow: none; }
+
+  .overlay-msg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(4, 11, 22, 0.9);
+    padding: 16px 24px;
+    border-radius: 2px;
+    font-size: 14px;
+    z-index: 3;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    border: 1px solid #00f3ff;
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+    text-transform: uppercase;
+  }
+
+  .overlay-msg.error-msg { 
+    color: #ff0055; 
+    border-color: #ff0055;
+    box-shadow: 0 0 20px rgba(255, 0, 85, 0.2);
+  }
+  
+  .overlay-msg.connecting-msg { 
+    color: #00f3ff; 
+  }
+
+  .spinner {
+    width: 30px; height: 30px;
+    border: 3px solid rgba(0, 243, 255, 0.2);
+    border-top-color: #00f3ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 설정 모달 */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 5, 10, 0.85);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show { display: flex; animation: fadeIn 0.3s; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: linear-gradient(135deg, rgba(4, 20, 40, 0.95), rgba(2, 10, 20, 0.95));
+    border: 1px solid #00f3ff;
+    border-radius: 2px;
+    padding: 30px;
+    width: 460px;
+    max-width: 90%;
+    box-shadow: 0 0 30px rgba(0, 243, 255, 0.2), inset 0 0 15px rgba(0, 243, 255, 0.1);
+    position: relative;
+  }
+  
+  .modal::before {
+    content: ''; position: absolute; top: -1px; left: -1px; width: 30px; height: 30px;
+    border-top: 3px solid #00f3ff; border-left: 3px solid #00f3ff;
+  }
+  
+  .modal::after {
+    content: ''; position: absolute; bottom: -1px; right: -1px; width: 30px; height: 30px;
+    border-bottom: 3px solid #00f3ff; border-right: 3px solid #00f3ff;
+  }
+
+  .modal h3 {
+    color: #00f3ff;
+    margin-bottom: 24px;
+    font-size: 20px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .modal .form-group {
+    margin-bottom: 18px;
+  }
+
+  .modal label {
+    display: block;
+    font-size: 13px;
+    color: #7de2ff;
+    margin-bottom: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .modal input, .modal select {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 2px;
+    font-size: 14px;
+    font-family: 'Share Tech Mono', monospace;
+    transition: all 0.3s;
+  }
+
+  .modal input:focus, .modal select:focus {
+    outline: none;
+    border-color: #00f3ff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+    background: rgba(0, 243, 255, 0.05);
+  }
+
+  .modal select option {
+    background: #020a14;
+    color: #00f3ff;
+  }
+
+  .modal .btn-row {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 28px;
+  }
+
+  .modal .btn-row button {
+    padding: 10px 24px;
+    border-radius: 2px;
+    font-size: 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modal .btn-primary {
+    background: rgba(0, 243, 255, 0.1);
+    color: #00f3ff;
+    border: 1px solid #00f3ff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2) inset;
+  }
+
+  .modal .btn-primary:hover {
+    background: #00f3ff;
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+  }
+
+  .modal .btn-cancel {
+    background: transparent;
+    color: #7de2ff;
+    border: 1px solid rgba(125, 226, 255, 0.4);
+  }
+
+  .modal .btn-cancel:hover {
+    background: rgba(125, 226, 255, 0.1);
+    border-color: #7de2ff;
+  }
+  /* 첨단 사이버펑크 텍스트 글리치 효과 */
+  .glitch-text {
+    position: relative;
+    display: inline-block;
+    color: #00f3ff;
+    letter-spacing: 4px;
+    font-size: 26px;
+  }
+  .glitch-text::before, .glitch-text::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0.8;
+  }
+  .glitch-text::before {
+    left: 2px;
+    text-shadow: -2px 0 #ff00ea;
+    clip: rect(24px, 550px, 90px, 0);
+    animation: glitch-anim 3s infinite linear alternate-reverse;
+  }
+  .glitch-text::after {
+    left: -2px;
+    text-shadow: -2px 0 #00ff66;
+    clip: rect(85px, 550px, 140px, 0);
+    animation: glitch-anim 2s infinite linear alternate-reverse;
+  }
+  @keyframes glitch-anim {
+    0% { clip: rect(10px, 9999px, 20px, 0); }
+    20% { clip: rect(30px, 9999px, 40px, 0); }
+    40% { clip: rect(2px, 9999px, 12px, 0); }
+    60% { clip: rect(45px, 9999px, 55px, 0); }
+    80% { clip: rect(24px, 9999px, 34px, 0); }
+    100% { clip: rect(91px, 9999px, 100px, 0); }
+  }
+
+  /* SVG 첨단 관제 아이콘 스타일 */
+  .hud-icon {
+    width: 32px;
+    height: 32px;
+    stroke: #00f3ff;
+    filter: drop-shadow(0 0 5px #00f3ff) drop-shadow(0 0 10px rgba(0,243,255,0.5));
+    animation: pulse-icon 2s infinite ease-in-out;
+  }
+
+  @keyframes pulse-icon {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px #00f3ff); }
+    50% { transform: scale(1.1); filter: drop-shadow(0 0 15px #00f3ff); }
+  }
+
+  /* 패널 모서리 깎기 (HUD 디자인) */
+  .panel {
+    clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>
+    <svg class="hud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M2 12c2.21-4.99 6.54-9 10-9s7.79 4.01 10 9c-2.21 4.99-6.54 9-10 9s-7.79-4.01-10-9z"></path>
+      <path d="M12 3v2"></path>
+      <path d="M12 19v2"></path>
+      <path d="M3 12h2"></path>
+      <path d="M19 12h2"></path>
+    </svg>
+    <span class="glitch-text" data-text="AEX-9 TACTICAL SURVEILLANCE">AEX-9 TACTICAL SURVEILLANCE</span>
+  </h1>
+  <div class="info" id="clock"></div>
+</header>
+
+<div class="toolbar">
+  <label>레이아웃:</label>
+  <select id="layoutSelect">
+    <option value="2x3" selected>2x3 (6채널)</option>
+    <option value="1x1">1x1 (단일)</option>
+    <option value="2x2">2x2 (4채널)</option>
+    <option value="3x3">3x3 (9채널)</option>
+  </select>
+  <button onclick="openSettings()">&#x2699; 설정</button>
+  <button class="btn-danger" onclick="disconnectAll()">전체 연결 해제</button>
+</div>
+
+<div class="grid-container grid-2x3" id="gridContainer"></div>
+
+<!-- 설정 모달 -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h3>&#x2699; 서버 설정</h3>
+    <div class="form-group">
+      <label>릴레이 서버 주소</label>
+      <input type="text" id="serverAddr" value="localhost:3000" placeholder="localhost:3000">
+    </div>
+    <div class="form-group">
+      <label>FFmpeg 비디오 비트레이트 (kbps)</label>
+      <input type="number" id="videoBitrate" value="1500">
+    </div>
+    <div class="form-group">
+      <label>해상도</label>
+      <select id="resolution">
+        <option value="640x360">640x360 (저)</option>
+        <option value="960x540" selected>960x540 (중)</option>
+        <option value="1280x720">1280x720 (고)</option>
+        <option value="1920x1080">1920x1080 (최고)</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeSettings()">취소</button>
+      <button class="btn-primary" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- JSMpeg 라이브러리 -->
+<script src="jsmpeg.min.js"></script>
+
+<script>
+// ─── 설정 ───
+let config = {
+  serverAddr: 'localhost:3000',
+  videoBitrate: 1500,
+  resolution: '960x540'
+};
+
+// ─── 상태 관리 ───
+const channels = [];
+let currentLayout = '2x3';
+const layoutMap = { '1x1': 1, '2x2': 4, '2x3': 6, '3x3': 9 };
+
+// ─── 시계 ───
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleString('ko-KR');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── 패널 HTML 생성 ───
+function buildPanelHTML(idx) {
+  return `
+    <div class="panel-header">
+      <span class="ch-label">CH${idx + 1}</span>
+      <input type="text" id="input-${idx}" placeholder="rtsp://IP:PORT/path (예: rtsp://210.99.70.120:1935/live/cctv006.stream)"
+             onkeydown="if(event.key==='Enter') toggleConnect(${idx})">
+      <button class="btn-sm" id="btn-${idx}" onclick="toggleConnect(${idx})">연결</button>
+      <button class="btn-sm btn-fs" onclick="toggleFullscreen(${idx})" title="전체화면">&#x26F6;</button>
+    </div>
+    <div class="panel-body" id="body-${idx}">
+      <canvas id="canvas-${idx}"></canvas>
+      <div class="placeholder" id="ph-${idx}">
+        <div class="icon">&#x1F4F7;</div>
+        <p>RTSP 주소를 입력하고 연결하세요</p>
+        <p style="margin-top:4px;font-size:11px;color:#263238">서버: npm start → http://localhost:3000</p>
+      </div>
+      <div class="status-bar" id="statusbar-${idx}" style="display:none">
+        <div class="status-left">
+          <span class="status-dot gray" id="dot-${idx}"></span>
+          <span id="status-text-${idx}">대기</span>
+          <span id="proto-badge-${idx}"></span>
+        </div>
+        <div class="meta-info" id="meta-${idx}"></div>
+      </div>
+    </div>
+  `;
+}
+
+// ─── 패널 생성 (초기) ───
+function createPanels(count) {
+  const grid = document.getElementById('gridContainer');
+  channels.length = 0;
+  grid.innerHTML = '';
+
+  for (let i = 0; i < count; i++) {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = `panel-${i}`;
+    panel.innerHTML = buildPanelHTML(i);
+    grid.appendChild(panel);
+    channels.push({ idx: i, player: null, connected: false, rtspUrl: null, watchdog: null });
+  }
+}
+
+// ─── JSMpeg 플레이어를 새 캔버스에 연결 ───
+function attachPlayer(idx) {
+  const ch = channels[idx];
+  if (!ch || !ch.rtspUrl) return;
+
+  const canvas = document.getElementById(`canvas-${idx}`);
+  if (!canvas) return;
+
+  const wsUrl = `ws://${config.serverAddr}?id=${idx}`;
+
+  ch.player = new JSMpeg.Player(wsUrl, {
+    canvas: canvas,
+    autoplay: true,
+    audio: false,
+    loop: false,
+    streaming: true,
+    disableGl: true,
+    disableWebAssembly: false,
+    videoBufferSize: 1024 * 1024 * 2,
+    reconnectInterval: 3,
+    onSourceEstablished: () => {
+      console.log(`[CH${idx+1}] WebSocket 재연결됨`);
+    },
+    onPlay: () => {
+      console.log(`[CH${idx+1}] 재생 재개`);
+      canvas.classList.add('active');
+      document.getElementById(`ph-${idx}`).style.display = 'none';
+      hideOverlay(idx);
+      setStatus(idx, 'connected', '수신 중');
+      setProtocolBadge(idx, 'ffmpeg');
+      ch.connected = true;
+      document.getElementById(`panel-${idx}`).classList.add('connected');
+      updateButton(idx, true);
+    },
+    onStalled: () => {
+      setStatus(idx, 'connecting', '버퍼링...');
+    },
+    onEnded: () => {
+      console.warn(`[CH${idx+1}] 스트림 종료`);
+    }
+  });
+
+  startWatchdog(idx);
+}
+
+// ─── 레이아웃 변경 (연결 유지) ───
+document.getElementById('layoutSelect').addEventListener('change', (e) => {
+  currentLayout = e.target.value;
+  const grid = document.getElementById('gridContainer');
+  grid.className = 'grid-container grid-' + currentLayout;
+  const newCount = layoutMap[currentLayout];
+  const oldCount = channels.length;
+
+  // 1) 기존 채널 상태 백업 (URL, 연결 여부)
+  const saved = channels.map(ch => ({
+    rtspUrl: ch.rtspUrl,
+    connected: ch.connected,
+    inputValue: document.getElementById(`input-${ch.idx}`)?.value || ''
+  }));
+
+  // 2) 기존 플레이어만 정리 (서버 FFmpeg는 유지!)
+  channels.forEach(ch => {
+    if (ch.watchdog) { clearInterval(ch.watchdog); ch.watchdog = null; }
+    if (ch.player) { try { ch.player.destroy(); } catch(e) {} ch.player = null; }
+  });
+
+  // 3) 새 패널 DOM 생성
+  channels.length = 0;
+  grid.innerHTML = '';
+  for (let i = 0; i < newCount; i++) {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = `panel-${i}`;
+    panel.innerHTML = buildPanelHTML(i);
+    grid.appendChild(panel);
+    channels.push({ idx: i, player: null, connected: false, rtspUrl: null, watchdog: null });
+  }
+
+  // 4) 이전 채널 복원: URL 복원 + 활성 스트림 재연결
+  const restoreCount = Math.min(oldCount, newCount);
+  for (let i = 0; i < restoreCount; i++) {
+    const s = saved[i];
+    if (s.inputValue) {
+      document.getElementById(`input-${i}`).value = s.inputValue;
+    }
+    if (s.connected && s.rtspUrl) {
+      channels[i].rtspUrl = s.rtspUrl;
+      channels[i].connected = true;
+      // 서버의 FFmpeg는 이미 동작 중 → JSMpeg만 새 캔버스에 연결
+      attachPlayer(i);
+    }
+  }
+
+  // 5) 줄어든 채널의 서버 스트림 정리
+  for (let i = newCount; i < oldCount; i++) {
+    const s = saved[i];
+    if (s.connected) {
+      fetch(`http://${config.serverAddr}/api/stream/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: i.toString() })
+      }).catch(() => {});
+    }
+  }
+});
+
+// ─── RTSP URL 정규화 ───
+function normalizeUrl(raw) {
+  raw = raw.trim();
+  if (!raw) return null;
+  // 이미 rtsp:// 형식이면 그대로
+  if (raw.startsWith('rtsp://')) return raw;
+  // http/https면 그대로
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  // IP만 입력 시 기본 rtsp 포맷
+  return 'rtsp://' + raw;
+}
+
+// ─── 연결 토글 ───
+function toggleConnect(idx) {
+  const ch = channels[idx];
+  if (ch.connected) {
+    disconnect(idx);
+  } else {
+    connect(idx);
+  }
+}
+
+// ─── 연결 ───
+async function connect(idx) {
+  const input = document.getElementById(`input-${idx}`);
+  const rtspUrl = normalizeUrl(input.value);
+  if (!rtspUrl) return;
+
+  setStatus(idx, 'connecting', '연결 중...');
+  showOverlay(idx, 'connecting', 'FFmpeg 스트림 연결 중...');
+
+  try {
+    // 1) 서버에 FFmpeg 스트림 시작 요청
+    const resp = await fetch(`http://${config.serverAddr}/api/stream/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: idx.toString(), url: rtspUrl })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `서버 응답 오류 (${resp.status})`);
+    }
+
+    // 2) 기존 플레이어 정리
+    if (channels[idx].player) {
+      try { channels[idx].player.destroy(); } catch(e) {}
+      channels[idx].player = null;
+    }
+
+    // 3) JSMpeg 플레이어 연결
+    channels[idx].rtspUrl = rtspUrl;
+    attachPlayer(idx);
+
+  } catch (err) {
+    console.error(`CH${idx + 1} 연결 실패:`, err);
+    setStatus(idx, 'error', '연결 실패');
+    showOverlay(idx, 'error', `연결 실패: ${err.message}`);
+    channels[idx].connected = false;
+    updateButton(idx, false);
+  }
+}
+
+// ─── Watchdog: 연결 상태 감시 ───
+function startWatchdog(idx) {
+  if (channels[idx].watchdog) clearInterval(channels[idx].watchdog);
+
+  let noDataCount = 0;
+
+  channels[idx].watchdog = setInterval(async () => {
+    const ch = channels[idx];
+    if (!ch.player) {
+      clearInterval(ch.watchdog);
+      ch.watchdog = null;
+      return;
+    }
+
+    // JSMpeg 내부 WebSocket 연결 상태 확인
+    const source = ch.player.source;
+    if (source && source.socket) {
+      const ws = source.socket;
+      if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        console.warn(`[CH${idx+1}] WebSocket 끊김 감지, 재연결 시도...`);
+        noDataCount = 0;
+        // 서버에 FFmpeg 재시작 요청
+        try {
+          await fetch(`http://${config.serverAddr}/api/stream/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: idx.toString(), url: ch.rtspUrl })
+          });
+        } catch (e) {}
+
+        // 플레이어 재생성
+        if (ch.player) { try { ch.player.destroy(); } catch(e) {} ch.player = null; }
+        setStatus(idx, 'connecting', '재연결 중...');
+        attachPlayer(idx);
+        return;
+      }
+    }
+
+    // 서버 상태 + 메타정보 주기적 확인 (2초마다)
+    if (noDataCount % 2 === 0) {
+      try {
+        const resp = await fetch(`http://${config.serverAddr}/api/stream/status`);
+        const status = await resp.json();
+        const s = status[idx.toString()];
+        if (s) {
+          // 메타정보 업데이트
+          if (s.meta) updateMeta(idx, s.meta);
+          // FFmpeg 비활성 시 재시작 (30초마다 확인)
+          if (!s.active && noDataCount > 0 && noDataCount % 30 === 0) {
+            console.warn(`[CH${idx+1}] 서버에서 FFmpeg 비활성 감지, 재시작 요청`);
+            await fetch(`http://${config.serverAddr}/api/stream/start`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: idx.toString(), url: ch.rtspUrl })
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
+    noDataCount++;
+  }, 1000);
+}
+
+// ─── 연결 해제 ───
+async function disconnect(idx) {
+  const ch = channels[idx];
+
+  // watchdog 중지
+  if (ch.watchdog) { clearInterval(ch.watchdog); ch.watchdog = null; }
+
+  // JSMpeg 플레이어 정리
+  if (ch.player) {
+    try { ch.player.destroy(); } catch (e) {}
+    ch.player = null;
+  }
+
+  // 서버에 FFmpeg 중지 요청
+  try {
+    await fetch(`http://${config.serverAddr}/api/stream/stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: idx.toString() })
+    });
+  } catch (e) {}
+
+  const canvas = document.getElementById(`canvas-${idx}`);
+  if (canvas) {
+    canvas.classList.remove('active');
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  document.getElementById(`ph-${idx}`).style.display = '';
+  document.getElementById(`panel-${idx}`).classList.remove('connected', 'error');
+  hideOverlay(idx);
+  setStatus(idx, 'idle', '대기');
+  setProtocolBadge(idx, null);
+  clearMeta(idx);
+
+  ch.connected = false;
+  ch.rtspUrl = null;
+  updateButton(idx, false);
+}
+
+async function disconnectAll() {
+  // 서버에 전체 중지 요청
+  try {
+    await fetch(`http://${config.serverAddr}/api/stream/stop-all`, { method: 'POST' });
+  } catch (e) {}
+  for (let i = 0; i < channels.length; i++) {
+    const ch = channels[i];
+    if (ch.watchdog) { clearInterval(ch.watchdog); ch.watchdog = null; }
+    if (ch.player) { try { ch.player.destroy(); } catch(e) {} ch.player = null; }
+
+    const canvas = document.getElementById(`canvas-${i}`);
+    if (canvas) canvas.classList.remove('active');
+    document.getElementById(`ph-${i}`).style.display = '';
+    document.getElementById(`panel-${i}`).classList.remove('connected', 'error');
+    hideOverlay(i);
+    setStatus(i, 'idle', '대기');
+    setProtocolBadge(i, null);
+    clearMeta(i);
+    ch.connected = false;
+    ch.rtspUrl = null;
+    updateButton(i, false);
+  }
+}
+
+// ─── UI 헬퍼 ───
+function updateButton(idx, connected) {
+  const btn = document.getElementById(`btn-${idx}`);
+  if (connected) {
+    btn.textContent = '해제';
+    btn.className = 'btn-sm disconnect';
+  } else {
+    btn.textContent = '연결';
+    btn.className = 'btn-sm';
+  }
+}
+
+function setStatus(idx, state, text) {
+  const bar = document.getElementById(`statusbar-${idx}`);
+  const dot = document.getElementById(`dot-${idx}`);
+  const txt = document.getElementById(`status-text-${idx}`);
+
+  bar.style.display = '';
+  txt.textContent = text;
+
+  dot.className = 'status-dot';
+  switch (state) {
+    case 'connected': dot.classList.add('green'); break;
+    case 'error': dot.classList.add('red'); break;
+    case 'connecting': dot.classList.add('yellow'); break;
+    default: dot.classList.add('gray');
+  }
+}
+
+function setProtocolBadge(idx, proto) {
+  const badge = document.getElementById(`proto-badge-${idx}`);
+  if (!proto) { badge.innerHTML = ''; return; }
+  badge.innerHTML = `<span class="protocol-badge ${proto}">${proto.toUpperCase()}</span>`;
+}
+
+// ─── 메타정보 표시 ───
+function updateMeta(idx, meta) {
+  const el = document.getElementById(`meta-${idx}`);
+  if (!el || !meta) return;
+
+  let html = '';
+
+  if (meta.inputCodec) {
+    html += `<span class="meta-tag codec">${meta.inputCodec}</span>`;
+  }
+  if (meta.inputResolution) {
+    html += `<span class="meta-tag resolution">${meta.inputResolution}</span>`;
+  }
+  if (meta.outputResolution && meta.outputResolution !== meta.inputResolution) {
+    html += `<span class="meta-tag resolution">&rarr;${meta.outputResolution}</span>`;
+  }
+  if (meta.fps) {
+    html += `<span class="meta-tag fps">${meta.fps} fps</span>`;
+  }
+  if (meta.bitrate) {
+    html += `<span class="meta-tag bitrate">${meta.bitrate}</span>`;
+  }
+  if (meta.uptime && meta.uptime !== 'N/A') {
+    html += `<span class="meta-tag uptime">${meta.uptime}</span>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function clearMeta(idx) {
+  const el = document.getElementById(`meta-${idx}`);
+  if (el) el.innerHTML = '';
+}
+
+function showOverlay(idx, type, msg) {
+  hideOverlay(idx);
+  const body = document.getElementById(`body-${idx}`);
+  const div = document.createElement('div');
+  div.className = 'overlay-msg ' + (type === 'error' ? 'error-msg' : 'connecting-msg');
+  div.id = `overlay-${idx}`;
+  if (type === 'connecting') {
+    div.innerHTML = `<div class="spinner"></div>${msg}`;
+  } else {
+    div.textContent = msg;
+  }
+  body.appendChild(div);
+}
+
+function hideOverlay(idx) {
+  const el = document.getElementById(`overlay-${idx}`);
+  if (el) el.remove();
+}
+
+// ─── 전체화면 ───
+function toggleFullscreen(idx) {
+  const panel = document.getElementById(`panel-${idx}`);
+  if (panel.classList.contains('fullscreen-panel')) {
+    panel.classList.remove('fullscreen-panel');
+  } else {
+    document.querySelectorAll('.fullscreen-panel').forEach(p => p.classList.remove('fullscreen-panel'));
+    panel.classList.add('fullscreen-panel');
+  }
+}
+
+// ESC로 전체화면 해제
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.fullscreen-panel').forEach(p => p.classList.remove('fullscreen-panel'));
+  }
+});
+
+// ─── 설정 모달 ───
+function openSettings() {
+  document.getElementById('serverAddr').value = config.serverAddr;
+  document.getElementById('videoBitrate').value = config.videoBitrate;
+  document.getElementById('resolution').value = config.resolution;
+  document.getElementById('settingsModal').classList.add('show');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+
+function saveSettings() {
+  config.serverAddr = document.getElementById('serverAddr').value || 'localhost:3000';
+  config.videoBitrate = parseInt(document.getElementById('videoBitrate').value) || 1500;
+  config.resolution = document.getElementById('resolution').value || '960x540';
+  closeSettings();
+}
+
+// ─── 초기화 ───
+createPanels(6);
+</script>
+</body>
+</html>
